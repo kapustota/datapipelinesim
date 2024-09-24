@@ -1,0 +1,67 @@
+#version: '3.8'
+
+services:
+
+  postgres:
+    image: postgres:latest
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: admin
+      POSTGRES_DB: web_analytics
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./postgresql/init-scripts:/docker-entrypoint-initdb.d  # Монтируем директорию с скриптами инициализации
+    networks:
+      - my_network
+    logging:
+      driver: "local"  # Используем драйвер логирования local для вывода логов в консоль
+
+   
+  localstack:
+    build:
+      context: ./localstack  # Убедитесь, что контекст сборки указан правильно
+      dockerfile: Dockerfile.localstack
+    depends_on:
+      - postgres
+    ports:
+      - "4566:4566"
+    environment:
+      - SERVICES=s3,lambda,apigateway,logs  # Сервисы, которые будут эмулироваться
+      - DEBUG=1
+      - BUCKET_NAME=s3_bucket
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_USER=admin
+      - POSTGRES_PASSWORD=admin
+      - POSTGRES_DB=web_analytics
+    volumes:
+      - "/var/run/docker.sock:/var/run/docker.sock"
+      - "./localstack_data:/tmp/localstack_data"
+      - "./localstack/init-scripts:/docker-entrypoint-initaws.d"  # Монтируем скрипты инициализации
+      - "./lambda:/lambda"  # Монтируем директорию с lambda-функциями
+      - ./shared:/shared  # Монтируем общий том
+    networks:
+      - my_network
+
+  data-generator:
+    build:
+      context: ./data-generator  # Убедитесь, что контекст сборки указан правильно
+      dockerfile: Dockerfile.generator
+    environment:
+      - LOCALSTACK_URL=http://localstack:4566/
+      - PYTHONUNBUFFERED=1  # Отключаем буферизацию вывода
+    depends_on:
+      - localstack
+    volumes:
+      - ./shared:/shared  # Монтируем общий том
+    networks:
+      - my_network
+
+volumes:
+  postgres_data:
+  shared: # Общий том для передачи данных
+
+networks:
+  my_network:

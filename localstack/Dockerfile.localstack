@@ -1,0 +1,48 @@
+# Используем базовый образ LocalStack
+FROM localstack/localstack:latest
+
+# Копируем скрипты инициализации в контейнер
+COPY init-scripts/create_etl.sh /docker-entrypoint-initaws.d/create_etl.sh
+COPY init-scripts/create_loader_to_s3.sh /docker-entrypoint-initaws.d/create_loader_to_s3.sh
+COPY init-scripts/create_lambda_layer.sh /docker-entrypoint-initaws.d/create_lambda_layer.sh
+COPY init-scripts/create_s3.sh /docker-entrypoint-initaws.d/create_s3.sh
+COPY init-scripts/create_api_gateway.sh /docker-entrypoint-initaws.d/create_api_gateway.sh
+
+# Копируем файлы лямбды в контейнер
+COPY lambda/ /var/task/
+
+RUN chmod +x /docker-entrypoint-initaws.d/*.sh
+
+# Устанавливаем необходимые зависимости
+RUN apt-get update && apt-get install -y curl
+
+# Запускаем docker-entrypoint.sh и ждем инициализации LocalStack
+ENTRYPOINT ["sh", "-c", "\
+    echo STARTING ENTRYPOINT; \
+    docker-entrypoint.sh & \
+    echo MOVING NEXT; \
+    until curl -s http://localhost:4566/_localstack/health | grep -q '\"s3\": \"available\"'; do \
+        echo 'Waiting for LocalStack S3 to be ready...'; \
+        sleep 5; \
+    done; \
+
+    echo 'Running ETL initialization script...'; \
+    /docker-entrypoint-initaws.d/create_etl.sh; \
+
+    echo 'Running Loader to S3 initialization script...'; \
+    /docker-entrypoint-initaws.d/create_loader_to_s3.sh; \
+
+    echo 'Running Lambda Layer initialization script...'; \
+    /docker-entrypoint-initaws.d/create_lambda_layer.sh; \
+
+    echo 'Running S3 initialization script...'; \
+    /docker-entrypoint-initaws.d/create_s3.sh; \
+
+    until curl -s http://localhost:4566/_localstack/health | grep -q '\"apigateway\": \"available\"'; do \
+        echo 'Waiting for LocalStack API Gateway to be ready...'; \
+        sleep 5; \
+    done; \
+
+    /docker-entrypoint-initaws.d/create_api_gateway.sh; \
+    tail -f /dev/null \
+"]
