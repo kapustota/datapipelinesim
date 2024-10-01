@@ -7,7 +7,7 @@ How to build and run:
 
 1. Install Docker and Docker-compose and give it the necessary permissions:
 
-'''
+```
 sudo apt update
 sudo apt upgrade
 sudo apt install apt-transport-https ca-certificates curl software-properties-common
@@ -16,23 +16,23 @@ echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docke
 sudo apt update
 sudo apt install docker-ce
 sudo usermod -aG docker $USER
-'''
+```
 
 2. Install Docker-compose:
 
-'''
+```
 sudo curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
 sudo chmod +x /usr/local/bin/docker-compose
-'''
+```
 
 3. Go to the directory of the source code and run the containers:
 
-'''
+```
 docker-compose up &
-'''
+```
 
 4. To stop the containers running, use:
 
-'''
+```
 docker-compose down
-'''
+```
